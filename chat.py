@@ -2,7 +2,6 @@ import json
 import streamlit as st
 from datetime import datetime
 from groq import Groq
-from dotenv import load_dotenv
 import os
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -12,12 +11,20 @@ from pathlib import Path
 import docx
 from PyPDF2 import PdfReader
 
-load_dotenv()
-
 # Initialize Groq client
 @st.cache_resource
 def init_groq():
-    return Groq(api_key=os.getenv("GROQ_API_KEY"))
+    try:
+        # Try to get API key from Streamlit secrets first (for deployment)
+        api_key = st.secrets["GROQ_API_KEY"]
+    except (KeyError, FileNotFoundError):
+        # Fallback to environment variable (for local development)
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            st.error("🔑 GROQ_API_KEY not found! Please add it to your Streamlit secrets or environment variables.")
+            st.stop()
+    
+    return Groq(api_key=api_key)
 
 groq = init_groq()
 
