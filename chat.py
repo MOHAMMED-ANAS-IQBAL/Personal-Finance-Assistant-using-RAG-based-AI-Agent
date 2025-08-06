@@ -2,6 +2,7 @@ import json
 import streamlit as st
 from datetime import datetime
 from groq import Groq
+from dotenv import load_dotenv
 import os
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -10,6 +11,8 @@ import numpy as np
 from pathlib import Path
 import docx
 from PyPDF2 import PdfReader
+
+load_dotenv()
 
 # Initialize Groq client
 @st.cache_resource
