@@ -17,17 +17,7 @@ load_dotenv()
 # Initialize Groq client
 @st.cache_resource
 def init_groq():
-    try:
-        # Try to get API key from Streamlit secrets first (for deployment)
-        api_key = st.secrets["GROQ_API_KEY"]
-    except (KeyError, FileNotFoundError):
-        # Fallback to environment variable (for local development)
-        api_key = os.getenv("GROQ_API_KEY")
-        if not api_key:
-            st.error("🔑 GROQ_API_KEY not found! Please add it to your Streamlit secrets or environment variables.")
-            st.stop()
-    
-    return Groq(api_key=api_key)
+    return Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 groq = init_groq()
 
@@ -89,8 +79,10 @@ def load_knowledge_base():
         st.warning("⚠️ 'docs' folder not found. Please create a 'docs' folder and add your documents.")
         return [], None, None
     
+    # Supported file extensions
     supported_extensions = {'.txt', '.pdf', '.docx', '.md'}
     
+    # Process all files in docs folder
     for file_path in docs_folder.iterdir():
         if file_path.is_file() and file_path.suffix.lower() in supported_extensions:
             st.info(f"📄 Loading: {file_path.name}")
@@ -126,9 +118,9 @@ def load_knowledge_base():
     vectorizer = TfidfVectorizer(
         stop_words='english', 
         max_features=1000,
-        ngram_range=(1, 2),
-        max_df=0.95,
-        min_df=2
+        ngram_range=(1, 2),  # Include bigrams
+        max_df=0.95,  # Ignore terms that appear in more than 95% of documents
+        min_df=2  # Ignore terms that appear in fewer than 2 documents
     )
     
     try:
@@ -156,7 +148,7 @@ def retrieve_relevant_docs(query, knowledge_base, vectorizer, tfidf_matrix, top_
         
         relevant_docs = []
         for idx in top_indices:
-            if similarities[idx] > 0.1:
+            if similarities[idx] > 0.1:  # Only include if similarity > threshold
                 relevant_docs.append({
                     "source": knowledge_base[idx]["source"],
                     "filename": knowledge_base[idx]["filename"],
@@ -284,7 +276,7 @@ def get_assistant_response_with_rag(user_message):
     # Retrieve relevant documents
     relevant_docs = retrieve_relevant_docs(user_message, knowledge_base, vectorizer, tfidf_matrix)
     
-
+    # Prepare context from retrieved documents
     context = ""
     if relevant_docs:
         context = "\n\nRelevant Knowledge from Documents:\n"
@@ -292,9 +284,11 @@ def get_assistant_response_with_rag(user_message):
             context += f"From {doc['source']}:\n{doc['content']}\n\n"
         context += "Use this knowledge to provide more informed responses when relevant.\n"
     
+    # Add user message with context
     enhanced_message = user_message + context
     st.session_state.messages.append({'role': 'user', 'content': enhanced_message})
     
+    # Get response from Groq
     while True:
         response = groq.chat.completions.create(
             messages=st.session_state.messages,
@@ -368,6 +362,7 @@ def main():
         
         st.divider()
         
+        # Knowledge Base Info
         st.subheader("📚 Knowledge Base")
         if knowledge_base:
             unique_files = set([doc['filename'] for doc in knowledge_base])
@@ -379,10 +374,12 @@ def main():
             st.write("No documents loaded")
             st.info("💡 Add .txt, .pdf, .docx, or .md files to the 'docs' folder")
         
+        # Refresh knowledge base
         if st.button("🔄 Refresh Knowledge Base"):
             st.cache_data.clear()
             st.rerun()
         
+        # Clear data button
         if st.button("🗑️ Clear All Data", type="secondary"):
             st.session_state.expense_db = []
             st.session_state.income_db = []
@@ -397,10 +394,10 @@ def main():
     chat_container = st.container()
     with chat_container:
         for i, chat_item in enumerate(st.session_state.chat_history):
-            if len(chat_item) == 2:
+            if len(chat_item) == 2:  # Old format
                 role, message = chat_item
                 relevant_docs = []
-            else:
+            else:  # New format with RAG info
                 role, message, relevant_docs = chat_item
             
             if role == "user":
@@ -409,12 +406,14 @@ def main():
             else:
                 with st.chat_message("assistant", avatar="🤖"):
                     st.write(message)
+                    # Show relevant knowledge if available
                     if relevant_docs:
                         with st.expander("📚 Knowledge Sources Used"):
                             for doc in relevant_docs:
                                 st.write(f"**{doc['source']}** (relevance: {doc['similarity']:.2f})")
                                 st.write(f"```\n{doc['content'][:300]}...\n```")
     
+    # Chat input
     user_input = st.chat_input("Ask Jarvis about your finances...")
     
     if user_input:
@@ -437,6 +436,7 @@ def main():
                         st.write(f"**{doc['source']}** (relevance: {doc['similarity']:.2f})")
                         st.write(f"```\n{doc['content'][:300]}...\n```")
         
+        # Add assistant response to chat history with RAG info
         st.session_state.chat_history.append(("assistant", response, relevant_docs))
         
         # Rerun to update sidebar
