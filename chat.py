@@ -14,7 +14,6 @@ from PyPDF2 import PdfReader
 
 load_dotenv()
 
-# Initialize Groq client
 @st.cache_resource
 def init_groq():
     return Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -79,7 +78,6 @@ def load_knowledge_base():
         st.warning("⚠️ 'docs' folder not found. Please create a 'docs' folder and add your documents.")
         return [], None, None
     
-    # Supported file extensions
     supported_extensions = {'.txt', '.pdf', '.docx', '.md'}
     
     # Process all files in docs folder
@@ -87,7 +85,6 @@ def load_knowledge_base():
         if file_path.is_file() and file_path.suffix.lower() in supported_extensions:
             st.info(f"📄 Loading: {file_path.name}")
             
-            # Read file based on extension
             if file_path.suffix.lower() == '.txt' or file_path.suffix.lower() == '.md':
                 content = read_text_file(file_path)
             elif file_path.suffix.lower() == '.pdf':
@@ -98,7 +95,6 @@ def load_knowledge_base():
                 continue
             
             if content.strip():
-                # Chunk the document
                 chunks = chunk_text(content)
                 
                 for i, chunk in enumerate(chunks):
@@ -118,9 +114,9 @@ def load_knowledge_base():
     vectorizer = TfidfVectorizer(
         stop_words='english', 
         max_features=1000,
-        ngram_range=(1, 2),  # Include bigrams
-        max_df=0.95,  # Ignore terms that appear in more than 95% of documents
-        min_df=2  # Ignore terms that appear in fewer than 2 documents
+        ngram_range=(1, 2),
+        max_df=0.95,
+        min_df=2
     )
     
     try:
@@ -137,18 +133,13 @@ def retrieve_relevant_docs(query, knowledge_base, vectorizer, tfidf_matrix, top_
         return []
     
     try:
-        # Transform query to TF-IDF vector
         query_vector = vectorizer.transform([query])
-        
-        # Calculate cosine similarities
         similarities = cosine_similarity(query_vector, tfidf_matrix).flatten()
-        
-        # Get top-k most similar documents
         top_indices = similarities.argsort()[-top_k:][::-1]
         
         relevant_docs = []
         for idx in top_indices:
-            if similarities[idx] > 0.1:  # Only include if similarity > threshold
+            if similarities[idx] > 0.1:
                 relevant_docs.append({
                     "source": knowledge_base[idx]["source"],
                     "filename": knowledge_base[idx]["filename"],
@@ -164,7 +155,6 @@ def retrieve_relevant_docs(query, knowledge_base, vectorizer, tfidf_matrix, top_
 # Initialize RAG system
 knowledge_base, vectorizer, tfidf_matrix = load_knowledge_base()
 
-# Initialize session state
 if 'expense_db' not in st.session_state:
     st.session_state.expense_db = []
 if 'income_db' not in st.session_state:
