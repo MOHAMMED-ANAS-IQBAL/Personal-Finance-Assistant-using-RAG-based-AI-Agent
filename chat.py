@@ -273,10 +273,7 @@ tools = [
 
 def get_assistant_response_with_rag(user_message):
     """Get response from Jarvis assistant with RAG"""
-    # Retrieve relevant documents
     relevant_docs = retrieve_relevant_docs(user_message, knowledge_base, vectorizer, tfidf_matrix)
-    
-    # Prepare context from retrieved documents
     context = ""
     if relevant_docs:
         context = "\n\nRelevant Knowledge from Documents:\n"
@@ -284,7 +281,6 @@ def get_assistant_response_with_rag(user_message):
             context += f"From {doc['source']}:\n{doc['content']}\n\n"
         context += "Use this knowledge to provide more informed responses when relevant.\n"
     
-    # Add user message with context
     enhanced_message = user_message + context
     st.session_state.messages.append({'role': 'user', 'content': enhanced_message})
     
@@ -292,7 +288,7 @@ def get_assistant_response_with_rag(user_message):
     while True:
         response = groq.chat.completions.create(
             messages=st.session_state.messages,
-            model='llama-3.3-70b-versatile',
+            model='llama-3.1-8b-instant',
             tools=tools,
             temperature=0.7
         )
@@ -321,13 +317,11 @@ def main():
     st.title("💰 Jarvis - Personal Finance Assistant")
     st.markdown("Your AI-powered personal finance helper with custom knowledge base")
     
-    # Show RAG status
     if knowledge_base:
         st.success(f"🧠 RAG System Active: {len(knowledge_base)} chunks from {len(set([doc['filename'] for doc in knowledge_base]))} documents loaded")
     else:
         st.warning("⚠️ RAG System Inactive: Add documents to 'docs' folder and refresh")
     
-    # Sidebar with current stats
     with st.sidebar:
         st.header("📊 Financial Overview")
         
@@ -362,7 +356,6 @@ def main():
         
         st.divider()
         
-        # Knowledge Base Info
         st.subheader("📚 Knowledge Base")
         if knowledge_base:
             unique_files = set([doc['filename'] for doc in knowledge_base])
@@ -374,12 +367,10 @@ def main():
             st.write("No documents loaded")
             st.info("💡 Add .txt, .pdf, .docx, or .md files to the 'docs' folder")
         
-        # Refresh knowledge base
         if st.button("🔄 Refresh Knowledge Base"):
             st.cache_data.clear()
             st.rerun()
         
-        # Clear data button
         if st.button("🗑️ Clear All Data", type="secondary"):
             st.session_state.expense_db = []
             st.session_state.income_db = []
@@ -387,17 +378,16 @@ def main():
             st.session_state.chat_history = []
             st.rerun()
     
-    # Main chat interface
     st.subheader("💬 Chat with Jarvis")
     
     # Display chat history
     chat_container = st.container()
     with chat_container:
         for i, chat_item in enumerate(st.session_state.chat_history):
-            if len(chat_item) == 2:  # Old format
+            if len(chat_item) == 2:
                 role, message = chat_item
                 relevant_docs = []
-            else:  # New format with RAG info
+            else:
                 role, message, relevant_docs = chat_item
             
             if role == "user":
@@ -406,20 +396,17 @@ def main():
             else:
                 with st.chat_message("assistant", avatar="🤖"):
                     st.write(message)
-                    # Show relevant knowledge if available
                     if relevant_docs:
                         with st.expander("📚 Knowledge Sources Used"):
                             for doc in relevant_docs:
                                 st.write(f"**{doc['source']}** (relevance: {doc['similarity']:.2f})")
                                 st.write(f"```\n{doc['content'][:300]}...\n```")
     
-    # Chat input
     user_input = st.chat_input("Ask Jarvis about your finances...")
     
     if user_input:
         st.session_state.chat_history.append(("user", user_input, []))
         
-        # Display user message
         with st.chat_message("user"):
             st.write(user_input)
         
@@ -429,17 +416,14 @@ def main():
                 response, relevant_docs = get_assistant_response_with_rag(user_input)
             st.write(response)
             
-            # Show relevant knowledge sources
             if relevant_docs:
                 with st.expander("📚 Knowledge Sources Used"):
                     for doc in relevant_docs:
                         st.write(f"**{doc['source']}** (relevance: {doc['similarity']:.2f})")
                         st.write(f"```\n{doc['content'][:300]}...\n```")
         
-        # Add assistant response to chat history with RAG info
         st.session_state.chat_history.append(("assistant", response, relevant_docs))
         
-        # Rerun to update sidebar
         st.rerun()
     
     # Quick action buttons
